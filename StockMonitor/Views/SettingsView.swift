@@ -247,10 +247,10 @@ struct SettingsView: View {
                     }
                 }
 
-                // 已有股票
+                // 已有股票：设置了持仓的排在前面，未设置持仓的在后
                 if !appState.stocks.isEmpty {
                     section("我的股票") {
-                        ForEach(appState.stocks) { s in stockRow(s) }
+                        ForEach(sortedStocksForSettings) { s in stockRow(s) }
                     }
                 }
                 } // end else
@@ -259,6 +259,22 @@ struct SettingsView: View {
         }
         .scrollIndicators(.never)
         .frame(width: 284, height: 480)
+    }
+
+    // MARK: - 排序辅助
+
+    /// 设置页"我的股票"排序：有持仓（成本 + 股数都设置了）的排在前面，
+    /// 其它的排在后面；组内保持原顺序。
+    private var sortedStocksForSettings: [Stock] {
+        let withHolding = appState.stocks.filter {
+            appState.effectiveCostPrice(for: $0) != nil
+                && appState.effectiveShares(for: $0) != nil
+        }
+        let withoutHolding = appState.stocks.filter {
+            appState.effectiveCostPrice(for: $0) == nil
+                || appState.effectiveShares(for: $0) == nil
+        }
+        return withHolding + withoutHolding
     }
 
     // MARK: - 子视图
