@@ -383,22 +383,42 @@ struct SettingsView: View {
         }
     }
 
-    /// 腾讯代理搜索（JSON，直接返回中文名，A股+港股最可靠）
+    /// 主搜索：腾讯（A股/港股/美股）和 Yahoo（韩股）并行，结果合并。
+    /// 用户输入 6 位数字 / 英文 / 韩文 时，A股 和 同号韩股 会同时显示。
     private func fetchSuggestions(_ keyword: String) async -> [SearchResult] {
-        // 韩股关键字：直接走 Yahoo 搜索（腾讯/新浪不覆盖韩股）
-        if looksKorean(keyword) {
-            let kr = await yahooKoreanSearch(keyword)
-            if !kr.isEmpty { return kr }
+        async let tencent = tencentSearch(keyword)
+        async let korean  = shouldQueryKorean(keyword)
+                            ? yahooKoreanSearch(keyword)
+                            : [SearchResult]()
+        let (t, k) = await (tencent, korean)
+
+        // 合并：先腾讯结果（保持原有排序），再 Yahoo 韩股结果，去重
+        var seen = Set<String>()
+        var merged: [SearchResult] = []
+        for r in t + k where !seen.contains(r.id) {
+            seen.insert(r.id)
+            merged.append(r)
         }
+
+        if merged.isEmpty {
+            // 全空：新浪兜底（覆盖某些美股 ticker）→ 直接代码兜底
+            let sina = await sinaFetchSuggestions(keyword)
+            return sina.isEmpty ? directResult(for: keyword) : sina
+        }
+        return merged
+    }
+
+    /// 腾讯搜索（A股/港股/美股），失败返回空。
+    private func tencentSearch(_ keyword: String) async -> [SearchResult] {
         guard let encoded = keyword.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://proxy.finance.qq.com/ifzqgtimg/appstock/smartbox/search/get?q=\(encoded)"),
               let (data, _) = try? await URLSession.shared.data(from: url),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let dataObj = json["data"] as? [String: Any],
               let stocks = dataObj["stock"] as? [[String]] else {
-            return await sinaFetchSuggestions(keyword)
+            return []
         }
-        let results = stocks.compactMap { item -> SearchResult? in
+        return stocks.compactMap { item -> SearchResult? in
             guard item.count >= 3 else { return nil }
             let mkt  = item[0].lowercased()
             let code = item[1].lowercased()
@@ -407,30 +427,27 @@ struct SettingsView: View {
             case "sh", "sz", "bj": return SearchResult(id: "\(mkt)\(code)", name: name, market: .aStock)
             case "hk":             return SearchResult(id: "hk\(code)",      name: name, market: .hkStock)
             case "us":
-                // Tencent 返回如 "AAPL.O" 或 "BRK.B.N"
-                // 去掉末尾交易所后缀（.O/.N/.A），保留股票代码本身，转小写
                 let parts = code.components(separatedBy: ".")
                 let ticker = (parts.count > 1 ? parts.dropLast().joined(separator: ".") : code).lowercased()
                 return SearchResult(id: "usr_\(ticker)", name: name, market: .usStock)
             default: return nil
             }
         }
-        if results.isEmpty {
-            // 退路：Yahoo 韩股搜索 → 代码兜底
-            let yahoo = await yahooKoreanSearch(keyword)
-            if !yahoo.isEmpty { return yahoo }
-            return directResult(for: keyword)
-        }
-        return results
     }
 
-    /// 关键字看起来像韩股查询：6位代码+后缀、韩文字母（Hangul）、或带 .ks/.kq 后缀
-    private func looksKorean(_ s: String) -> Bool {
-        let k = s.trimmingCharacters(in: .whitespaces).lowercased()
-        if k.hasSuffix(".ks") || k.hasSuffix(".kq") { return true }
-        if k.hasPrefix("kr_") { return true }
-        // 含 Hangul（U+AC00–U+D7AF）
-        if s.unicodeScalars.contains(where: { $0.value >= 0xAC00 && $0.value <= 0xD7AF }) { return true }
+    /// 是否同时跑一次 Yahoo 韩股搜索：
+    /// - 含 Hangul / 带 .ks/.kq 后缀 / kr_ 前缀 → 一定
+    /// - 6 位纯数字（韩股代码长度）→ 一定（即便腾讯能搜到 A 股，同号韩股也想看到）
+    /// - 纯字母长度 ≥ 3 → 一定（公司名）
+    /// 其它（短数字、特殊字符）跳过 Yahoo，省一次请求
+    private func shouldQueryKorean(_ s: String) -> Bool {
+        let k = s.trimmingCharacters(in: .whitespaces)
+        let lower = k.lowercased()
+        if lower.hasSuffix(".ks") || lower.hasSuffix(".kq") { return true }
+        if lower.hasPrefix("kr_") { return true }
+        if k.unicodeScalars.contains(where: { $0.value >= 0xAC00 && $0.value <= 0xD7AF }) { return true }
+        if k.count == 6, k.allSatisfy(\.isNumber) { return true }
+        if k.count >= 3, k.allSatisfy({ $0.isLetter }) { return true }
         return false
     }
 
