@@ -22,6 +22,7 @@ struct StockChartView: View {
         case .aStock:  return 0...239
         case .hkStock: return 0...329
         case .usStock: return 0...959
+        case .krStock: return 0...389
         }
     }
 
@@ -35,6 +36,9 @@ struct StockChartView: View {
         case .usStock:
             // 基准 04:00 ET；330=09:30；720=16:00；959=19:59
             return [(0, "04:00"), (330, "09:30"), (570, "13:30"), (720, "16:00"), (959, "20:00")]
+        case .krStock:
+            // 基准 09:00 KST；180=12:00；389=15:29
+            return [(0, "09:00"), (90, "10:30"), (180, "12:00"), (270, "13:30"), (389, "15:30")]
         }
     }
 

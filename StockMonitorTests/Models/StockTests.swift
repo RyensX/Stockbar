@@ -54,4 +54,30 @@ final class StockTests: XCTestCase {
                          changePercent: -10.0, updateTime: "15:00:00")
         XCTAssertEqual(stock.pnl(quote: quote)!, -500.0, accuracy: 0.001)
     }
+
+    func test_market_fromCode_krStock_kospi() {
+        XCTAssertEqual(Market.from(code: "kr_005930.ks"), .krStock)
+    }
+
+    func test_market_fromCode_krStock_kosdaq() {
+        XCTAssertEqual(Market.from(code: "kr_293490.kq"), .krStock)
+    }
+
+    func test_market_krStock_rawValue() {
+        XCTAssertEqual(Market.krStock.rawValue, "韩股")
+    }
+
+    func test_market_allCases_includes_kr() {
+        XCTAssertTrue(Market.allCases.contains(.krStock))
+    }
+
+    func test_stock_codable_roundtrip_kr() throws {
+        let stock = Stock(id: "kr_005930.ks", name: "Samsung Electronics", market: .krStock,
+                         costPrice: 80000.0, holdingShares: 10)
+        let data = try JSONEncoder().encode(stock)
+        let decoded = try JSONDecoder().decode(Stock.self, from: data)
+        XCTAssertEqual(decoded.id, "kr_005930.ks")
+        XCTAssertEqual(decoded.market, .krStock)
+        XCTAssertEqual(decoded.costPrice, 80000.0)
+    }
 }

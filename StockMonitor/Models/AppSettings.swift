@@ -4,12 +4,14 @@ enum DisplayCurrency: String, Codable, CaseIterable {
     case cny = "CNY"
     case hkd = "HKD"
     case usd = "USD"
+    case krw = "KRW"
 
     var symbol: String {
         switch self {
         case .cny: return "¥"
         case .hkd: return "HK$"
         case .usd: return "$"
+        case .krw: return "₩"
         }
     }
 
@@ -18,6 +20,7 @@ enum DisplayCurrency: String, Codable, CaseIterable {
         case .cny: return "人民币 ¥"
         case .hkd: return "港币 HK$"
         case .usd: return "美元 $"
+        case .krw: return "韩元 ₩"
         }
     }
 }

@@ -4,10 +4,12 @@ enum Market: String, Codable, CaseIterable {
     case aStock  = "A股"
     case hkStock = "港股"
     case usStock = "美股"
+    case krStock = "韩股"
 
     static func from(code: String) -> Market {
         if code.hasPrefix("hk")   { return .hkStock }
         if code.hasPrefix("usr_") { return .usStock }
+        if code.hasPrefix("kr_")  { return .krStock }
         return .aStock
     }
 }
