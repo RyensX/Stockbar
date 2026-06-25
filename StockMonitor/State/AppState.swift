@@ -329,6 +329,9 @@ final class AppState: ObservableObject {
     // MARK: - 状态栏
 
     var statusBarStock: Stock? {
+        if statusBarStockId == "__most_volatile__" {
+            return mostVolatileStock ?? stocks.first
+        }
         if statusBarStockId.hasPrefix("__") { return nil }
         return stocks.first(where: { $0.id == statusBarStockId }) ?? stocks.first
     }
@@ -336,6 +339,22 @@ final class AppState: ObservableObject {
     var statusBarQuote: Quote? {
         guard let s = statusBarStock else { return nil }
         return quotes[s.id]
+    }
+
+    private var mostVolatileStock: Stock? {
+        stocks
+            .compactMap { stock -> (stock: Stock, percent: Double, volatility: Double)? in
+                guard let percent = quotes[stock.id]?.changePercent,
+                      percent.isFinite else { return nil }
+                return (stock, percent, abs(percent))
+            }
+            .max { lhs, rhs in
+                if lhs.volatility != rhs.volatility {
+                    return lhs.volatility < rhs.volatility
+                }
+                return lhs.percent > rhs.percent
+            }?
+            .stock
     }
 
     // MARK: - 颜色辅助

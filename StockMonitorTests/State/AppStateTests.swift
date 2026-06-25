@@ -50,6 +50,72 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(sut.statusBarStock?.id, "sh600001")
     }
 
+    func test_statusBarStock_mostVolatileSelectsLargestPositiveMove() {
+        sut.stocks = [
+            Stock(id: "sh600000", name: "股票1", market: .aStock, costPrice: nil, holdingShares: nil),
+            Stock(id: "sh600001", name: "股票2", market: .aStock, costPrice: nil, holdingShares: nil)
+        ]
+        sut.quotes = [
+            "sh600000": Quote(code: "sh600000", price: 10.0, change: 0.1, changePercent: 1.0, updateTime: ""),
+            "sh600001": Quote(code: "sh600001", price: 10.0, change: 0.6, changePercent: 6.0, updateTime: "")
+        ]
+        sut.statusBarStockId = "__most_volatile__"
+        XCTAssertEqual(sut.statusBarStock?.id, "sh600001")
+    }
+
+    func test_statusBarStock_mostVolatileSelectsLargestAbsoluteNegativeMove() {
+        sut.stocks = [
+            Stock(id: "sh600000", name: "股票1", market: .aStock, costPrice: nil, holdingShares: nil),
+            Stock(id: "sh600001", name: "股票2", market: .aStock, costPrice: nil, holdingShares: nil)
+        ]
+        sut.quotes = [
+            "sh600000": Quote(code: "sh600000", price: 10.0, change: 0.5, changePercent: 5.0, updateTime: ""),
+            "sh600001": Quote(code: "sh600001", price: 10.0, change: -0.7, changePercent: -7.0, updateTime: "")
+        ]
+        sut.statusBarStockId = "__most_volatile__"
+        XCTAssertEqual(sut.statusBarStock?.id, "sh600001")
+    }
+
+    func test_statusBarStock_mostVolatilePrefersNegativeWhenAbsoluteMoveTies() {
+        sut.stocks = [
+            Stock(id: "sh600000", name: "上涨", market: .aStock, costPrice: nil, holdingShares: nil),
+            Stock(id: "sh600001", name: "下跌", market: .aStock, costPrice: nil, holdingShares: nil)
+        ]
+        sut.quotes = [
+            "sh600000": Quote(code: "sh600000", price: 10.0, change: 0.7, changePercent: 7.0, updateTime: ""),
+            "sh600001": Quote(code: "sh600001", price: 10.0, change: -0.7, changePercent: -7.0, updateTime: "")
+        ]
+        sut.statusBarStockId = "__most_volatile__"
+        XCTAssertEqual(sut.statusBarStock?.id, "sh600001")
+    }
+
+    func test_statusBarStock_mostVolatileFallsBackToFirstWithoutQuotes() {
+        let s = Stock(id: "sh600000", name: "股票1", market: .aStock, costPrice: nil, holdingShares: nil)
+        sut.stocks = [s]
+        sut.quotes = [:]
+        sut.statusBarStockId = "__most_volatile__"
+        XCTAssertEqual(sut.statusBarStock?.id, "sh600000")
+    }
+
+    func test_statusBarStock_mostVolatileIgnoresNonFinitePercent() {
+        sut.stocks = [
+            Stock(id: "sh600000", name: "股票1", market: .aStock, costPrice: nil, holdingShares: nil),
+            Stock(id: "sh600001", name: "股票2", market: .aStock, costPrice: nil, holdingShares: nil)
+        ]
+        sut.quotes = [
+            "sh600000": Quote(code: "sh600000", price: 10.0, change: .nan, changePercent: .nan, updateTime: ""),
+            "sh600001": Quote(code: "sh600001", price: 10.0, change: 0.3, changePercent: 3.0, updateTime: "")
+        ]
+        sut.statusBarStockId = "__most_volatile__"
+        XCTAssertEqual(sut.statusBarStock?.id, "sh600001")
+    }
+
+    func test_statusBarStock_noneModeReturnsNil() {
+        sut.stocks = [Stock(id: "sh600000", name: "股票1", market: .aStock, costPrice: nil, holdingShares: nil)]
+        sut.statusBarStockId = "__none__"
+        XCTAssertNil(sut.statusBarStock)
+    }
+
     func test_statusBarIconMode_updatesConfig() {
         sut.statusBarIconMode = .stockInitial
         XCTAssertEqual(sut.config.statusBarIconMode, .stockInitial)

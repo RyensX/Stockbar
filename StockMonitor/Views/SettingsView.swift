@@ -49,6 +49,7 @@ struct SettingsView: View {
                         Text("日盈亏 + 总盈亏").tag("__both_pnl__")
                         Divider()
                         Text("（自动选第一只）").tag("")
+                        Text("（自动选波动大的）").tag("__most_volatile__")
                         ForEach(appState.stocks) { s in
                             Text("\(s.name)  \(s.id)").tag(s.id)
                         }
