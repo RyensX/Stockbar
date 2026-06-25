@@ -31,6 +31,7 @@ final class AppState: ObservableObject {
     @Published var isLoading: Bool              = false
     @Published var lastUpdateTime: Date?        = nil
     @Published var hasError: Bool               = false
+    @Published private var clockNow: Date       = Date()
 
     // MARK: - 文件路径
     //
@@ -154,6 +155,7 @@ final class AppState: ObservableObject {
     // MARK: - 刷新调度
 
     private var scheduler: RefreshScheduler?
+    private var clockTimer: Timer?
 
     init() {
         appLogger.info("AppState init start")
@@ -163,6 +165,7 @@ final class AppState: ObservableObject {
         _watchlists = Published(wrappedValue: Self.loadWatchlists())
         appLogger.info("AppState stocks loaded: \(self.stocks.count)")
         logToFile("AppState stocks loaded: \(self.stocks.count)")
+        setupClockTimer()
         setupScheduler()
         appLogger.info("AppState init complete")
         logToFile("AppState init complete")
@@ -175,8 +178,17 @@ final class AppState: ObservableObject {
         }
     }
 
+    private func setupClockTimer() {
+        clockTimer?.invalidate()
+        clockTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.clockNow = Date()
+            }
+        }
+    }
+
     func setupScheduler() {
-        scheduler = RefreshScheduler { [weak self] in await self?.refresh() }
+        scheduler = RefreshScheduler { [weak self] in await self?.refreshAutomatically() }
         scheduler?.start(interval: TimeInterval(refreshInterval))
     }
 
@@ -185,9 +197,16 @@ final class AppState: ObservableObject {
         setupScheduler()
     }
 
-    func forceRefresh() { scheduler?.forceRefresh() }
+    func forceRefresh() {
+        Task { await refresh() }
+    }
 
     // MARK: - 数据拉取
+
+    private func refreshAutomatically() async {
+        guard !isDoNotDisturbActive else { return }
+        await refresh()
+    }
 
     func refresh() async {
         isLoading = true
@@ -231,6 +250,43 @@ final class AppState: ObservableObject {
             hasError = true
         }
         isLoading = false
+    }
+
+    // MARK: - 免打扰
+
+    var isDoNotDisturbActive: Bool {
+        isDoNotDisturbActive(at: clockNow)
+    }
+
+    func isDoNotDisturbActive(at date: Date) -> Bool {
+        guard config.doNotDisturbEnabled else { return false }
+        return Self.isDoNotDisturbActive(
+            minuteOfDay: Self.minuteOfDay(from: date),
+            startMinutes: config.doNotDisturbStartMinutes,
+            endMinutes: config.doNotDisturbEndMinutes
+        )
+    }
+
+    nonisolated static func isDoNotDisturbActive(
+        minuteOfDay: Int,
+        startMinutes: Int,
+        endMinutes: Int
+    ) -> Bool {
+        guard let minute = AppSettings.validMinute(minuteOfDay),
+              let start = AppSettings.validMinute(startMinutes),
+              let end = AppSettings.validMinute(endMinutes) else { return false }
+
+        if start == end { return true }
+        if start < end {
+            return (start..<end).contains(minute)
+        }
+        return minute >= start || minute < end
+    }
+
+    private nonisolated static func minuteOfDay(from date: Date) -> Int {
+        let cal = Calendar.current
+        let comps = cal.dateComponents([.hour, .minute], from: date)
+        return (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
     }
 
     private func syncStockNamesFromQuotes() {

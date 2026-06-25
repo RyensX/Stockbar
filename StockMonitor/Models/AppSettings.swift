@@ -85,17 +85,28 @@ struct AppSettings {
     var usPriceMode: USPriceMode         = .sessionPrice
     var groupHoldings: Bool              = false
     var activeWatchlistId: String?       = nil    // nil = 真实持仓
+    var doNotDisturbEnabled: Bool        = false
+    var doNotDisturbStartMinutes: Int    = Self.defaultDoNotDisturbStartMinutes
+    var doNotDisturbEndMinutes: Int      = Self.defaultDoNotDisturbEndMinutes
 
     static let validRefreshIntervals = [3, 5, 10, 30]
+    static let defaultDoNotDisturbStartMinutes = 15 * 60
+    static let defaultDoNotDisturbEndMinutes = 9 * 60 + 30
 
     var upColorName: String   { colorScheme == .chinese ? "upRed"   : "upGreen" }
     var downColorName: String { colorScheme == .chinese ? "downGreen" : "downRed" }
+
+    static func validMinute(_ minute: Int?) -> Int? {
+        guard let minute, (0..<24 * 60).contains(minute) else { return nil }
+        return minute
+    }
 }
 
 // MARK: - Codable（容错：缺失字段使用默认值）
 extension AppSettings: Codable {
     enum CodingKeys: String, CodingKey {
         case statusBarStockId, statusBarIconMode, refreshInterval, colorScheme, displayCurrency, sortRule, usPriceMode, groupHoldings, activeWatchlistId
+        case doNotDisturbEnabled, doNotDisturbStartMinutes, doNotDisturbEndMinutes
     }
 
     init(from decoder: Decoder) throws {
@@ -109,5 +120,10 @@ extension AppSettings: Codable {
         usPriceMode        = (try? c.decodeIfPresent(USPriceMode.self,     forKey: .usPriceMode))         ?? .sessionPrice
         groupHoldings      = (try? c.decodeIfPresent(Bool.self,            forKey: .groupHoldings))       ?? false
         activeWatchlistId  = try? c.decodeIfPresent(String.self,           forKey: .activeWatchlistId)
+        doNotDisturbEnabled = (try? c.decodeIfPresent(Bool.self,           forKey: .doNotDisturbEnabled)) ?? false
+        doNotDisturbStartMinutes = Self.validMinute(try? c.decodeIfPresent(Int.self, forKey: .doNotDisturbStartMinutes))
+            ?? Self.defaultDoNotDisturbStartMinutes
+        doNotDisturbEndMinutes = Self.validMinute(try? c.decodeIfPresent(Int.self, forKey: .doNotDisturbEndMinutes))
+            ?? Self.defaultDoNotDisturbEndMinutes
     }
 }

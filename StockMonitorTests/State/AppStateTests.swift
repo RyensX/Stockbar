@@ -121,6 +121,45 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(sut.config.statusBarIconMode, .stockInitial)
     }
 
+    func test_doNotDisturb_sameDayRange() {
+        XCTAssertTrue(AppState.isDoNotDisturbActive(
+            minuteOfDay: 10 * 60,
+            startMinutes: 9 * 60,
+            endMinutes: 11 * 60
+        ))
+        XCTAssertFalse(AppState.isDoNotDisturbActive(
+            minuteOfDay: 12 * 60,
+            startMinutes: 9 * 60,
+            endMinutes: 11 * 60
+        ))
+    }
+
+    func test_doNotDisturb_crossDayRange() {
+        let start = 15 * 60
+        let end = 9 * 60 + 30
+        XCTAssertTrue(AppState.isDoNotDisturbActive(minuteOfDay: 16 * 60, startMinutes: start, endMinutes: end))
+        XCTAssertTrue(AppState.isDoNotDisturbActive(minuteOfDay: 9 * 60, startMinutes: start, endMinutes: end))
+        XCTAssertFalse(AppState.isDoNotDisturbActive(minuteOfDay: 10 * 60, startMinutes: start, endMinutes: end))
+    }
+
+    func test_doNotDisturb_sameStartAndEndMeansAllDay() {
+        XCTAssertTrue(AppState.isDoNotDisturbActive(
+            minuteOfDay: 12 * 60,
+            startMinutes: 8 * 60,
+            endMinutes: 8 * 60
+        ))
+    }
+
+    func test_doNotDisturb_usesConfigEnabledFlag() {
+        sut.config.doNotDisturbEnabled = false
+        sut.config.doNotDisturbStartMinutes = 15 * 60
+        sut.config.doNotDisturbEndMinutes = 9 * 60 + 30
+        XCTAssertFalse(sut.isDoNotDisturbActive(at: makeDate(hour: 16, minute: 0)))
+
+        sut.config.doNotDisturbEnabled = true
+        XCTAssertTrue(sut.isDoNotDisturbActive(at: makeDate(hour: 16, minute: 0)))
+    }
+
     func test_hasPnLData_falseWithNoHoldings() {
         sut.stocks = [Stock(id: "sh600000", name: "股票1", market: .aStock, costPrice: nil, holdingShares: nil)]
         XCTAssertFalse(sut.hasPnLData)
@@ -148,5 +187,16 @@ final class AppStateTests: XCTestCase {
         sut.stocks = [Stock(id: "sh600000", name: "股票1", market: .aStock, costPrice: 10.0, holdingShares: 100)]
         sut.quotes = [:]
         XCTAssertEqual(sut.totalPnL, 0.0, accuracy: 0.001)
+    }
+
+    private func makeDate(hour: Int, minute: Int) -> Date {
+        var comps = DateComponents()
+        comps.calendar = Calendar.current
+        comps.year = 2026
+        comps.month = 6
+        comps.day = 25
+        comps.hour = hour
+        comps.minute = minute
+        return comps.date!
     }
 }

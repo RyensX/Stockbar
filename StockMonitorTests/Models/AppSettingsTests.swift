@@ -43,6 +43,21 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(s.statusBarIconMode, .appIcon)
     }
 
+    func test_doNotDisturb_defaultsDisabledWithAfternoonToNextMorningRange() {
+        let s = AppSettings()
+        XCTAssertFalse(s.doNotDisturbEnabled)
+        XCTAssertEqual(s.doNotDisturbStartMinutes, 15 * 60)
+        XCTAssertEqual(s.doNotDisturbEndMinutes, 9 * 60 + 30)
+    }
+
+    func test_decodeLegacySettings_defaultsDoNotDisturbDisabled() throws {
+        let data = #"{"statusBarStockId":"sh600000"}"#.data(using: .utf8)!
+        let s = try JSONDecoder().decode(AppSettings.self, from: data)
+        XCTAssertFalse(s.doNotDisturbEnabled)
+        XCTAssertEqual(s.doNotDisturbStartMinutes, 15 * 60)
+        XCTAssertEqual(s.doNotDisturbEndMinutes, 9 * 60 + 30)
+    }
+
     func test_colorTheme_allCases() {
         XCTAssertEqual(ColorTheme.allCases.count, 2)
         XCTAssertTrue(ColorTheme.allCases.contains(.chinese))

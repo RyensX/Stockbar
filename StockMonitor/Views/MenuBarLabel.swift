@@ -10,7 +10,14 @@ struct MenuBarLabel: View {
         let isPnl = mode == "__daily_pnl__" || mode == "__total_pnl__" || mode == "__both_pnl__"
 
         HStack(spacing: 4) {
-            if isPnl {
+            if appState.isDoNotDisturbActive {
+                appIcon
+                Text("免打扰中")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .fixedSize()
+            } else if isPnl {
                 pnlText
             } else if let stock = appState.statusBarStock,
                       let quote = appState.statusBarQuote {
@@ -24,7 +31,7 @@ struct MenuBarLabel: View {
                 appIcon
             }
 
-            if appState.hasError {
+            if !appState.isDoNotDisturbActive && appState.hasError {
                 Text("⚠").font(.system(size: 11)).foregroundColor(.yellow)
             }
         }

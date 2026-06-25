@@ -169,6 +169,35 @@ struct SettingsView: View {
                     }.pickerStyle(.segmented)
                 }
 
+                // 免打扰时段
+                section("免打扰时段") {
+                    Toggle("启用免打扰", isOn: Binding(
+                        get: { appState.config.doNotDisturbEnabled },
+                        set: { appState.config.doNotDisturbEnabled = $0 }
+                    ))
+                    .padding(.leading, 8)
+
+                    VStack(spacing: 6) {
+                        timePickerRow(
+                            title: "开始",
+                            minutes: Binding(
+                                get: { appState.config.doNotDisturbStartMinutes },
+                                set: { appState.config.doNotDisturbStartMinutes = $0 }
+                            )
+                        )
+                        timePickerRow(
+                            title: "结束",
+                            minutes: Binding(
+                                get: { appState.config.doNotDisturbEndMinutes },
+                                set: { appState.config.doNotDisturbEndMinutes = $0 }
+                            )
+                        )
+                    }
+                    .padding(.leading, 8)
+                    .disabled(!appState.config.doNotDisturbEnabled)
+                    .opacity(appState.config.doNotDisturbEnabled ? 1 : 0.55)
+                }
+
                 // 涨跌颜色
                 section("涨跌颜色") {
                     HStack(spacing: 8) {
@@ -325,6 +354,32 @@ struct SettingsView: View {
             .overlay(RoundedRectangle(cornerRadius: 6)
                 .stroke(selected ? Color.accentColor : Color.clear, lineWidth: 1.5))
         }.buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func timePickerRow(title: String, minutes: Binding<Int>) -> some View {
+        HStack {
+            Text(title).font(.system(size: 12))
+            Spacer()
+            DatePicker("", selection: Binding(
+                get: { dateForMinutes(minutes.wrappedValue) },
+                set: { minutes.wrappedValue = minutesFromDate($0) }
+            ), displayedComponents: .hourAndMinute)
+            .labelsHidden()
+            .datePickerStyle(.compact)
+            .frame(width: 92)
+        }
+    }
+
+    private func dateForMinutes(_ minutes: Int) -> Date {
+        let validMinutes = AppSettings.validMinute(minutes) ?? 0
+        let startOfDay = Calendar.current.startOfDay(for: Date())
+        return Calendar.current.date(byAdding: .minute, value: validMinutes, to: startOfDay) ?? startOfDay
+    }
+
+    private func minutesFromDate(_ date: Date) -> Int {
+        let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
     }
 
     @ViewBuilder
