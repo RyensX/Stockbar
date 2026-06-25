@@ -49,6 +49,20 @@ enum USPriceMode: String, Codable, CaseIterable {
     }
 }
 
+enum StatusBarIconMode: String, Codable, CaseIterable {
+    case appIcon = "appIcon"
+    case stockInitial = "stockInitial"
+    case hidden = "hidden"
+
+    var displayName: String {
+        switch self {
+        case .appIcon: return "APP图标"
+        case .stockInitial: return "名称首字"
+        case .hidden: return "不显示"
+        }
+    }
+}
+
 enum ColorTheme: String, Codable, CaseIterable {
     case chinese = "chinese"  // 红涨绿跌
     case western = "western"  // 绿涨红跌
@@ -63,6 +77,7 @@ enum ColorTheme: String, Codable, CaseIterable {
 
 struct AppSettings {
     var statusBarStockId: String         = ""
+    var statusBarIconMode: StatusBarIconMode = .appIcon
     var refreshInterval: Int             = 5
     var colorScheme: ColorTheme          = .chinese
     var displayCurrency: DisplayCurrency = .cny
@@ -80,12 +95,13 @@ struct AppSettings {
 // MARK: - Codable（容错：缺失字段使用默认值）
 extension AppSettings: Codable {
     enum CodingKeys: String, CodingKey {
-        case statusBarStockId, refreshInterval, colorScheme, displayCurrency, sortRule, usPriceMode, groupHoldings, activeWatchlistId
+        case statusBarStockId, statusBarIconMode, refreshInterval, colorScheme, displayCurrency, sortRule, usPriceMode, groupHoldings, activeWatchlistId
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         statusBarStockId   = (try? c.decodeIfPresent(String.self,          forKey: .statusBarStockId))    ?? ""
+        statusBarIconMode  = (try? c.decodeIfPresent(StatusBarIconMode.self, forKey: .statusBarIconMode)) ?? .appIcon
         refreshInterval    = (try? c.decodeIfPresent(Int.self,             forKey: .refreshInterval))     ?? 5
         colorScheme        = (try? c.decodeIfPresent(ColorTheme.self,      forKey: .colorScheme))         ?? .chinese
         displayCurrency    = (try? c.decodeIfPresent(DisplayCurrency.self, forKey: .displayCurrency))     ?? .cny

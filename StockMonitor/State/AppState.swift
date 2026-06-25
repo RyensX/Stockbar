@@ -131,6 +131,11 @@ final class AppState: ObservableObject {
         set { config.statusBarStockId = newValue }
     }
 
+    var statusBarIconMode: StatusBarIconMode {
+        get { config.statusBarIconMode }
+        set { config.statusBarIconMode = newValue }
+    }
+
     var refreshInterval: Int {
         get { config.refreshInterval }
         set { config.refreshInterval = newValue }

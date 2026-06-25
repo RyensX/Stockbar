@@ -50,6 +50,11 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(sut.statusBarStock?.id, "sh600001")
     }
 
+    func test_statusBarIconMode_updatesConfig() {
+        sut.statusBarIconMode = .stockInitial
+        XCTAssertEqual(sut.config.statusBarIconMode, .stockInitial)
+    }
+
     func test_hasPnLData_falseWithNoHoldings() {
         sut.stocks = [Stock(id: "sh600000", name: "股票1", market: .aStock, costPrice: nil, holdingShares: nil)]
         XCTAssertFalse(sut.hasPnLData)

@@ -53,6 +53,22 @@ struct SettingsView: View {
                             Text("\(s.name)  \(s.id)").tag(s.id)
                         }
                     }.pickerStyle(.menu)
+
+                    HStack {
+                        Text("价格左侧标识").font(.system(size: 12))
+                        Spacer()
+                        Picker("", selection: Binding(
+                            get: { appState.statusBarIconMode },
+                            set: { appState.statusBarIconMode = $0 }
+                        )) {
+                            ForEach(StatusBarIconMode.allCases, id: \.rawValue) { mode in
+                                Text(mode.displayName).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .frame(width: 110)
+                    }
+                    .padding(.leading, 8)
                 }
 
                 // 持仓股分组

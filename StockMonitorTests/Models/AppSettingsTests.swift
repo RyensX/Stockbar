@@ -25,6 +25,24 @@ final class AppSettingsTests: XCTestCase {
         }
     }
 
+    func test_statusBarIconMode_defaultIsAppIcon() {
+        XCTAssertEqual(AppSettings().statusBarIconMode, .appIcon)
+    }
+
+    func test_statusBarIconMode_allCases() {
+        XCTAssertEqual(StatusBarIconMode.allCases.count, 3)
+        XCTAssertTrue(StatusBarIconMode.allCases.contains(.appIcon))
+        XCTAssertTrue(StatusBarIconMode.allCases.contains(.stockInitial))
+        XCTAssertTrue(StatusBarIconMode.allCases.contains(.hidden))
+    }
+
+    func test_decodeLegacySettings_defaultsStatusBarIconModeToAppIcon() throws {
+        let data = #"{"statusBarStockId":"sh600000"}"#.data(using: .utf8)!
+        let s = try JSONDecoder().decode(AppSettings.self, from: data)
+        XCTAssertEqual(s.statusBarStockId, "sh600000")
+        XCTAssertEqual(s.statusBarIconMode, .appIcon)
+    }
+
     func test_colorTheme_allCases() {
         XCTAssertEqual(ColorTheme.allCases.count, 2)
         XCTAssertTrue(ColorTheme.allCases.contains(.chinese))
