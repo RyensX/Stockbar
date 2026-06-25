@@ -15,6 +15,7 @@ struct SettingsView: View {
     @State private var editCost      = ""
     @State private var editShares    = ""
     @State private var newWatchlistName = ""
+    @State private var volatilityThresholdText = ""
 
     struct SearchResult: Identifiable {
         let id: String; let name: String; let market: Market
@@ -196,6 +197,53 @@ struct SettingsView: View {
                     .padding(.leading, 8)
                     .disabled(!appState.config.doNotDisturbEnabled)
                     .opacity(appState.config.doNotDisturbEnabled ? 1 : 0.55)
+                }
+
+                // 波动提醒
+                section("波动提醒") {
+                    Toggle("启用波动提醒", isOn: Binding(
+                        get: { appState.config.volatilityAlertEnabled },
+                        set: { enabled in
+                            appState.config.volatilityAlertEnabled = enabled
+                            if enabled {
+                                Task { await VolatilityAlertService.shared.requestAuthorization() }
+                            }
+                        }
+                    ))
+                    .padding(.leading, 8)
+
+                    Stepper(
+                        onIncrement: {
+                            adjustVolatilityThreshold(by: AppSettings.volatilityAlertThresholdStep)
+                        },
+                        onDecrement: {
+                            adjustVolatilityThreshold(by: -AppSettings.volatilityAlertThresholdStep)
+                        },
+                        label: {
+                            HStack(spacing: 6) {
+                                Text("波动阈值").font(.system(size: 12))
+                                Spacer()
+                                TextField("0.8", text: Binding(
+                                    get: { volatilityThresholdText },
+                                    set: { updateVolatilityThresholdText($0) }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 58)
+                                Text("%").font(.system(size: 12))
+                            }
+                        }
+                    )
+                    .onAppear {
+                        if volatilityThresholdText.isEmpty {
+                            volatilityThresholdText = formatVolatilityThreshold(
+                                appState.config.volatilityAlertThreshold
+                            )
+                        }
+                    }
+                    .padding(.leading, 8)
+                    .disabled(!appState.config.volatilityAlertEnabled)
+                    .opacity(appState.config.volatilityAlertEnabled ? 1 : 0.55)
                 }
 
                 // 涨跌颜色
@@ -380,6 +428,24 @@ struct SettingsView: View {
     private func minutesFromDate(_ date: Date) -> Int {
         let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
         return (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
+    }
+
+    private func updateVolatilityThresholdText(_ text: String) {
+        volatilityThresholdText = text
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard let value = Double(trimmed), value.isFinite else { return }
+        appState.config.volatilityAlertThreshold = value
+    }
+
+    private func adjustVolatilityThreshold(by delta: Double) {
+        let value = appState.config.volatilityAlertThreshold + delta
+        appState.config.volatilityAlertThreshold = value
+        volatilityThresholdText = formatVolatilityThreshold(value)
+    }
+
+    private func formatVolatilityThreshold(_ value: Double) -> String {
+        guard value.isFinite else { return "" }
+        return String(value)
     }
 
     @ViewBuilder

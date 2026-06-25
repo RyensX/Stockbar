@@ -3,13 +3,23 @@ import Combine
 import AppKit
 import os
 
+struct VolatilityAlertCandidate: Equatable {
+    let stockId: String
+    let stockName: String
+    let changePercent: Double
+    let threshold: Double
+}
+
 @MainActor
 final class AppState: ObservableObject {
 
     // MARK: - 持久化（settings.json）
 
     @Published var config: AppSettings = AppSettings() {
-        didSet { saveSettings(config) }
+        didSet {
+            handleVolatilityAlertConfigChange(from: oldValue)
+            saveSettings(config)
+        }
     }
 
     // MARK: - 持久化（stocks.json）
@@ -156,6 +166,7 @@ final class AppState: ObservableObject {
 
     private var scheduler: RefreshScheduler?
     private var clockTimer: Timer?
+    private var volatilityAlertedStockIds = Set<String>()
 
     init() {
         appLogger.info("AppState init start")
@@ -245,6 +256,7 @@ final class AppState: ObservableObject {
             quotes.merge(kr) { $1 }
             exchangeRates  = rates
             lastUpdateTime = Date()
+            checkVolatilityAlerts()
             syncStockNamesFromQuotes()
         } catch {
             hasError = true
@@ -287,6 +299,85 @@ final class AppState: ObservableObject {
         let cal = Calendar.current
         let comps = cal.dateComponents([.hour, .minute], from: date)
         return (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
+    }
+
+    // MARK: - 波动提醒
+
+    private func handleVolatilityAlertConfigChange(from oldValue: AppSettings) {
+        if oldValue.volatilityAlertEnabled != config.volatilityAlertEnabled
+            || oldValue.volatilityAlertThreshold != config.volatilityAlertThreshold {
+            volatilityAlertedStockIds.removeAll()
+        }
+
+        if !config.volatilityAlertEnabled {
+            volatilityAlertedStockIds.removeAll()
+        }
+    }
+
+    private func checkVolatilityAlerts() {
+        guard config.volatilityAlertEnabled else {
+            volatilityAlertedStockIds.removeAll()
+            return
+        }
+
+        let threshold = config.volatilityAlertThreshold
+        let candidates = Self.volatilityAlertCandidates(
+            stocks: stocks,
+            quotes: quotes,
+            threshold: threshold,
+            alertedStockIds: volatilityAlertedStockIds
+        )
+        volatilityAlertedStockIds = Self.volatilityAlertActiveStockIds(
+            stocks: stocks,
+            quotes: quotes,
+            threshold: threshold
+        )
+
+        for candidate in candidates {
+            Task {
+                await VolatilityAlertService.shared.notify(
+                    stockName: candidate.stockName,
+                    stockId: candidate.stockId,
+                    changePercent: candidate.changePercent,
+                    threshold: candidate.threshold
+                )
+            }
+        }
+    }
+
+    nonisolated static func volatilityAlertCandidates(
+        stocks: [Stock],
+        quotes: [String: Quote],
+        threshold: Double,
+        alertedStockIds: Set<String>
+    ) -> [VolatilityAlertCandidate] {
+        guard threshold.isFinite else { return [] }
+        return stocks.compactMap { stock in
+            guard let percent = quotes[stock.id]?.changePercent,
+                  percent.isFinite,
+                  abs(percent) >= threshold,
+                  !alertedStockIds.contains(stock.id) else { return nil }
+            return VolatilityAlertCandidate(
+                stockId: stock.id,
+                stockName: stock.name,
+                changePercent: percent,
+                threshold: threshold
+            )
+        }
+    }
+
+    nonisolated static func volatilityAlertActiveStockIds(
+        stocks: [Stock],
+        quotes: [String: Quote],
+        threshold: Double
+    ) -> Set<String> {
+        guard threshold.isFinite else { return [] }
+        return Set(stocks.compactMap { stock in
+            guard let percent = quotes[stock.id]?.changePercent,
+                  percent.isFinite,
+                  abs(percent) >= threshold else { return nil }
+            return stock.id
+        })
     }
 
     private func syncStockNamesFromQuotes() {

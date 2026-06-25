@@ -160,6 +160,100 @@ final class AppStateTests: XCTestCase {
         XCTAssertTrue(sut.isDoNotDisturbActive(at: makeDate(hour: 16, minute: 0)))
     }
 
+    func test_volatilityAlertCandidates_includePositiveAndNegativeMovesOverThreshold() {
+        let stocks = [
+            Stock(id: "sh600000", name: "上涨", market: .aStock, costPrice: nil, holdingShares: nil),
+            Stock(id: "sh600001", name: "下跌", market: .aStock, costPrice: nil, holdingShares: nil),
+            Stock(id: "sh600002", name: "未触发", market: .aStock, costPrice: nil, holdingShares: nil)
+        ]
+        let quotes = [
+            "sh600000": Quote(code: "sh600000", price: 10.0, change: 0.6, changePercent: 6.0, updateTime: ""),
+            "sh600001": Quote(code: "sh600001", price: 10.0, change: -0.7, changePercent: -7.0, updateTime: ""),
+            "sh600002": Quote(code: "sh600002", price: 10.0, change: 0.3, changePercent: 3.0, updateTime: "")
+        ]
+
+        let candidates = AppState.volatilityAlertCandidates(
+            stocks: stocks,
+            quotes: quotes,
+            threshold: 5.0,
+            alertedStockIds: []
+        )
+
+        XCTAssertEqual(candidates.map(\.stockId), ["sh600000", "sh600001"])
+    }
+
+    func test_volatilityAlertCandidates_useManualFractionalThreshold() {
+        let stocks = [
+            Stock(id: "sh600000", name: "触发", market: .aStock, costPrice: nil, holdingShares: nil),
+            Stock(id: "sh600001", name: "未触发", market: .aStock, costPrice: nil, holdingShares: nil)
+        ]
+        let quotes = [
+            "sh600000": Quote(code: "sh600000", price: 10.0, change: 0.09, changePercent: 0.9, updateTime: ""),
+            "sh600001": Quote(code: "sh600001", price: 10.0, change: 0.07, changePercent: 0.7, updateTime: "")
+        ]
+
+        let candidates = AppState.volatilityAlertCandidates(
+            stocks: stocks,
+            quotes: quotes,
+            threshold: 0.8,
+            alertedStockIds: []
+        )
+
+        XCTAssertEqual(candidates.map(\.stockId), ["sh600000"])
+        XCTAssertEqual(candidates.first?.threshold, 0.8, accuracy: 0.001)
+    }
+
+    func test_volatilityAlertCandidates_skipAlreadyAlertedStocks() {
+        let stocks = [Stock(id: "sh600000", name: "上涨", market: .aStock, costPrice: nil, holdingShares: nil)]
+        let quotes = [
+            "sh600000": Quote(code: "sh600000", price: 10.0, change: 0.6, changePercent: 6.0, updateTime: "")
+        ]
+
+        let candidates = AppState.volatilityAlertCandidates(
+            stocks: stocks,
+            quotes: quotes,
+            threshold: 5.0,
+            alertedStockIds: ["sh600000"]
+        )
+
+        XCTAssertTrue(candidates.isEmpty)
+    }
+
+    func test_volatilityAlertActiveStockIds_dropStocksBackUnderThreshold() {
+        let stocks = [
+            Stock(id: "sh600000", name: "上涨", market: .aStock, costPrice: nil, holdingShares: nil),
+            Stock(id: "sh600001", name: "回落", market: .aStock, costPrice: nil, holdingShares: nil)
+        ]
+        let quotes = [
+            "sh600000": Quote(code: "sh600000", price: 10.0, change: 0.6, changePercent: 6.0, updateTime: ""),
+            "sh600001": Quote(code: "sh600001", price: 10.0, change: 0.3, changePercent: 3.0, updateTime: "")
+        ]
+
+        let activeIds = AppState.volatilityAlertActiveStockIds(
+            stocks: stocks,
+            quotes: quotes,
+            threshold: 5.0
+        )
+
+        XCTAssertEqual(activeIds, ["sh600000"])
+    }
+
+    func test_volatilityAlertCandidates_ignoreNonFinitePercent() {
+        let stocks = [Stock(id: "sh600000", name: "异常", market: .aStock, costPrice: nil, holdingShares: nil)]
+        let quotes = [
+            "sh600000": Quote(code: "sh600000", price: 10.0, change: .nan, changePercent: .nan, updateTime: "")
+        ]
+
+        let candidates = AppState.volatilityAlertCandidates(
+            stocks: stocks,
+            quotes: quotes,
+            threshold: 5.0,
+            alertedStockIds: []
+        )
+
+        XCTAssertTrue(candidates.isEmpty)
+    }
+
     func test_hasPnLData_falseWithNoHoldings() {
         sut.stocks = [Stock(id: "sh600000", name: "股票1", market: .aStock, costPrice: nil, holdingShares: nil)]
         XCTAssertFalse(sut.hasPnLData)

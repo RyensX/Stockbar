@@ -58,6 +58,27 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(s.doNotDisturbEndMinutes, 9 * 60 + 30)
     }
 
+    func test_volatilityAlert_defaultsDisabledWithFivePercentThreshold() {
+        let s = AppSettings()
+        XCTAssertFalse(s.volatilityAlertEnabled)
+        XCTAssertEqual(s.volatilityAlertThreshold, 5.0, accuracy: 0.001)
+    }
+
+    func test_decodeLegacySettings_defaultsVolatilityAlertDisabled() throws {
+        let data = #"{"statusBarStockId":"sh600000"}"#.data(using: .utf8)!
+        let s = try JSONDecoder().decode(AppSettings.self, from: data)
+        XCTAssertFalse(s.volatilityAlertEnabled)
+        XCTAssertEqual(s.volatilityAlertThreshold, 5.0, accuracy: 0.001)
+    }
+
+    func test_decodeSettings_preservesManualVolatilityAlertThreshold() throws {
+        let data = #"{"volatilityAlertEnabled":true,"volatilityAlertThreshold":0.8}"#
+            .data(using: .utf8)!
+        let s = try JSONDecoder().decode(AppSettings.self, from: data)
+        XCTAssertTrue(s.volatilityAlertEnabled)
+        XCTAssertEqual(s.volatilityAlertThreshold, 0.8, accuracy: 0.001)
+    }
+
     func test_colorTheme_allCases() {
         XCTAssertEqual(ColorTheme.allCases.count, 2)
         XCTAssertTrue(ColorTheme.allCases.contains(.chinese))

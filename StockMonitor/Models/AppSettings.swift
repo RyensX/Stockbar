@@ -88,10 +88,14 @@ struct AppSettings {
     var doNotDisturbEnabled: Bool        = false
     var doNotDisturbStartMinutes: Int    = Self.defaultDoNotDisturbStartMinutes
     var doNotDisturbEndMinutes: Int      = Self.defaultDoNotDisturbEndMinutes
+    var volatilityAlertEnabled: Bool     = false
+    var volatilityAlertThreshold: Double = Self.defaultVolatilityAlertThreshold
 
     static let validRefreshIntervals = [3, 5, 10, 30]
     static let defaultDoNotDisturbStartMinutes = 15 * 60
     static let defaultDoNotDisturbEndMinutes = 9 * 60 + 30
+    static let defaultVolatilityAlertThreshold = 5.0
+    static let volatilityAlertThresholdStep = 0.5
 
     var upColorName: String   { colorScheme == .chinese ? "upRed"   : "upGreen" }
     var downColorName: String { colorScheme == .chinese ? "downGreen" : "downRed" }
@@ -100,6 +104,7 @@ struct AppSettings {
         guard let minute, (0..<24 * 60).contains(minute) else { return nil }
         return minute
     }
+
 }
 
 // MARK: - Codable（容错：缺失字段使用默认值）
@@ -107,6 +112,7 @@ extension AppSettings: Codable {
     enum CodingKeys: String, CodingKey {
         case statusBarStockId, statusBarIconMode, refreshInterval, colorScheme, displayCurrency, sortRule, usPriceMode, groupHoldings, activeWatchlistId
         case doNotDisturbEnabled, doNotDisturbStartMinutes, doNotDisturbEndMinutes
+        case volatilityAlertEnabled, volatilityAlertThreshold
     }
 
     init(from decoder: Decoder) throws {
@@ -125,5 +131,8 @@ extension AppSettings: Codable {
             ?? Self.defaultDoNotDisturbStartMinutes
         doNotDisturbEndMinutes = Self.validMinute(try? c.decodeIfPresent(Int.self, forKey: .doNotDisturbEndMinutes))
             ?? Self.defaultDoNotDisturbEndMinutes
+        volatilityAlertEnabled = (try? c.decodeIfPresent(Bool.self, forKey: .volatilityAlertEnabled)) ?? false
+        volatilityAlertThreshold = (try? c.decodeIfPresent(Double.self, forKey: .volatilityAlertThreshold))
+            ?? Self.defaultVolatilityAlertThreshold
     }
 }
